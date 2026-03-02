@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unmuted | District Master Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #fdfcfb; --card: #ffffff; --text: #1e293b; --secondary: #64748b;
+            --gold: #d4af37; --danger: #f43f5e; --accent: #10b981; --warn: #f59e0b; --admin: #4f46e5; --creator: #8b5cf6;
+        }
+        body { margin: 0; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; overflow-x: hidden; }
+
+        /* --- SIDEBAR SOS (REACTIVE) --- */
+        #sos-sidebar {
+            width: 85px; background: var(--danger); color: white; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; cursor: pointer; position: fixed;
+            left: 0; top: 0; bottom: 0; z-index: 5000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+        }
+        #sos-text { transform: rotate(-90deg); white-space: nowrap; font-weight: 800; font-size: 1.4rem; letter-spacing: 2px; }
+        
+        @keyframes pulse-sidebar {
+            0%, 100% { filter: brightness(1); width: 85px; }
+            50% { filter: brightness(1.2); width: 100px; }
+        }
+
+        /* --- MAIN LAYOUT --- */
+        #app-shell { margin-left: 85px; width: 100%; max-width: 1000px; background: rgba(255,255,255,0.8); min-height: 100vh; border-right: 1px solid #eee; position: relative; }
+        .screen { display: none; padding: 40px; animation: fadeIn 0.4s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(15px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* --- UI COMPONENTS --- */
+        .glass-card { background: var(--card); padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.02); margin-bottom: 20px; width: 100%; box-sizing: border-box; }
+        .flagged { border-left: 8px solid var(--danger) !important; background: #fff1f2 !important; }
+        input, textarea { width: 100%; padding: 16px; margin: 10px 0; border-radius: 16px; border: 1px solid #e2e8f0; font-family: inherit; font-size: 1rem; box-sizing: border-box; }
+        button { cursor: pointer; border: none; border-radius: 14px; font-weight: 600; padding: 14px; transition: 0.2s; width: 100%; font-family: inherit; }
+        .btn-primary { background: var(--gold); color: white; }
+        .badge { display: inline-block; padding: 5px 12px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; color: white; text-transform: uppercase; margin-bottom: 10px; }
+        
+        /* --- NAV --- */
+        nav { position: fixed; bottom: 0; left: 85px; right: 0; background: white; padding: 20px; border-top: 1px solid #eee; display: none; justify-content: center; gap: 20px; z-index: 4000; }
+        .nav-btn { width: 180px; background: #f8fafc; color: var(--text); border: 1px solid #e2e8f0; }
+
+        @media (max-width: 600px) { #app-shell { margin-left: 60px; } #sos-sidebar { width: 60px; } }
+    </style>
+</head>
+<body>
+
+<div id="sos-sidebar" onclick="handleCrisis()">
+    <div style="font-size: 2rem; margin-bottom: 15px;">🆘</div>
+    <div id="sos-text">HELP NOW</div>
+</div>
+
+<div id="app-shell">
+    <div id="screen-gate" class="screen" style="display: block; text-align: center; padding-top: 100px;">
+        <span style="font-size: 5rem;">💛</span>
+        <h1>Unmuted</h1>
+        <div class="glass-card" style="max-width: 400px; margin: 0 auto;">
+            <input type="number" id="loginID" placeholder="District ID Number">
+            <input type="password" id="accessKey" placeholder="Staff Key (Optional)">
+            <button class="btn-primary" onclick="handleLogin()">Sign In</button>
+        </div>
+    </div>
+
+    <div id="screen-mood" class="screen" style="text-align: center;">
+        <h2>How are you feeling right now?</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 30px;">
+            <button onclick="setMood('Happy')" style="background: #ecfdf5; color: #065f46;">😊 Happy</button>
+            <button onclick="setMood('Stressed')" style="background: #fffbeb; color: #92400e;">😫 Stressed</button>
+            <button onclick="setMood('Sad')" style="background: #eff6ff; color: #1e40af;">😔 Sad</button>
+            <button onclick="setMood('Angry')" style="background: #fef2f2; color: #991b1b;">😡 Angry</button>
+        </div>
+    </div>
+
+    <div id="screen-wall" class="screen">
+        <h2 id="welcome-msg">Community Wall</h2>
+        <textarea id="vInput" rows="4" placeholder="Share what's on your heart... (it stays anonymous)"></textarea>
+        <button class="btn-primary" onclick="submitPost()">Post to the Wall</button>
+        <div id="student-feed" style="margin-top: 30px;"></div>
+    </div>
+
+    <div id="screen-staff" class="screen">
+        <h2 id="staff-title">Staff Dashboard</h2>
+        <div id="staff-feed"></div>
+    </div>
+
+    <nav id="bottom-nav">
+        <button class="nav-btn" onclick="nav('wall')">Wall</button>
+        <button class="nav-btn" style="color:var(--danger)" onclick="location.reload()">Logout</button>
+    </nav>
+</div>
+
+<script>
+    const KEYS = { CREATOR:"FOUNDER2026", ADMIN:"MASTER2026", COUNSELOR:"HEAL2026", SRO:"SAFE2026" };
+    const ROSTER = {"1001":"Student A", "1234":"Test User"};
+    const TRIGGERS = ["kill", "die", "hurt", "weapon", "suicide", "bomb"];
+    const MOOD_MAP = {
+        'Happy': { c: '#10b981', l: 'KEEP SHINING', p: '0s' },
+        'Stressed': { c: '#f59e0b', l: 'BREATHE', p: '4s' },
+        'Sad': { c: '#3b82f6', l: 'WE ARE HERE', p: '3s' },
+        'Angry': { c: '#ef4444', l: 'HELP NOW', p: '2s' }
+    };
+
+    let currentUser = null;
+    let currentRole = 'STUDENT';
+    let posts = JSON.parse(localStorage.getItem('unmuted_v36') || "[]");
+
+    function handleLogin() {
+        const id = document.getElementById('loginID').value;
+        const key = document.getElementById('accessKey').value;
+
+        for (let role in KEYS) {
+            if (id === "000" && key === KEYS[role]) { // Simplified for demo; in production use specific staff IDs
+                currentRole = role; return launchStaff();
+            }
+        }
+        // Specific Staff IDs
+        if (id === "888" && key === KEYS.COUNSELOR) { currentRole = 'COUNSELOR'; return launchStaff(); }
+        if (id === "777" && key === KEYS.SRO) { currentRole = 'SRO'; return launchStaff(); }
+        if (id === "000" && key === KEYS.CREATOR) { currentRole = 'CREATOR'; return launchStaff(); }
+
+        if (ROSTER[id]) { currentUser = id; nav('mood'); return; }
+        alert("Access Denied.");
+    }
+
+    function setMood(m) {
+        const t = MOOD_MAP[m];
+        const bar = document.getElementById('sos-sidebar');
+        bar.style.backgroundColor = t.c;
+        document.getElementById('sos-text').innerText = t.l;
+        bar.style.animation = t.p !== '0s' ? `pulse-sidebar ${t.p} infinite` : 'none';
+        nav('wall'); renderStudentFeed();
+    }
+
+    function launchStaff() { nav('staff'); document.getElementById('staff-title').innerText = currentRole + " DASHBOARD"; renderStaffView(); }
+
+    function submitPost() {
+        const txt = document.getElementById('vInput').value;
+        if (!txt) return;
+        const isEmerg = TRIGGERS.some(w => txt.toLowerCase().includes(w));
+        posts.unshift({
+            id: Date.now(), authorID: currentUser, text: txt, status: 'OPEN',
+            claimedBy: null, emergency: isEmerg, time: new Date().toLocaleTimeString(),
+            messages: [], staffUnread: false
+        });
+        save(); document.getElementById('vInput').value = ""; renderStudentFeed();
+        if(isEmerg) alert("Safety Alert: A counselor has been notified.");
+    }
+
+    function renderStudentFeed() {
+        const feed = document.getElementById('student-feed');
+        feed.innerHTML = posts.filter(p => p.status !== 'RESOLVED').map(p => {
+            const myMessages = p.messages ? p.messages.map(m => `
+                <div style="background:#f1f5f9; padding:10px; border-radius:12px; margin-top:10px; font-size:0.85rem;">
+                    <b>${m.sender}:</b> ${m.text}
+                </div>`).join("") : "";
+            
+            return `
+                <div class="glass-card">
+                    <p style="font-size:1.1rem;">${p.text}</p>
+                    ${myMessages}
+                    ${p.messages.length > 0 ? `<button onclick="reply(${p.id})" style="width:auto; font-size:0.7rem; margin-top:10px;">Reply to Staff</button>` : ""}
+                </div>`;
+        }).join("");
+    }
+
+    function renderStaffView() {
+        const feed = document.getElementById('staff-feed');
+        feed.innerHTML = posts.map(p => {
+            const redact = (currentRole === 'COUNSELOR' || currentRole === 'CREATOR') && !p.emergency;
+            return `
+                <div class="glass-card ${p.emergency ? 'flagged' : ''}">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span class="badge" style="background:${p.status==='OPEN'?'var(--accent)':'var(--warn)'}">${p.status}</span>
+                        ${p.staffUnread ? '🔴' : ''}
+                    </div>
+                    <p><b>ID:</b> ${redact ? '[REDACTED]' : p.authorID}<br>${p.text}</p>
+                    <div style="display:flex; gap:10px;">
+                        ${p.status==='OPEN'?`<button onclick="claim(${p.id})">Claim</button>`:''}
+                        ${p.status==='CLAIMED' && p.claimedBy === currentRole ? `<button onclick="chat(${p.id})">Message</button><button onclick="resolve(${p.id})">Resolve</button>`:''}
+                    </div>
+                </div>`;
+        }).join("");
+    }
+
+    function claim(id) { posts.find(x => x.id === id).status = 'CLAIMED'; posts.find(x => x.id === id).claimedBy = currentRole; save(); renderStaffView(); }
+    
+    function chat(id) {
+        const p = posts.find(x => x.id === id); p.staffUnread = false;
+        const msg = prompt("Message to student (Anonymous):");
+        if(msg) { p.messages.push({sender: currentRole, text: msg}); save(); renderStaffView(); }
+    }
+
+    function reply(id) {
+        const p = posts.find(x => x.id === id);
+        const msg = prompt("Reply to staff:");
+        if(msg) { p.messages.push({sender: 'STUDENT', text: msg}); p.staffUnread = true; save(); renderStudentFeed(); }
+    }
+
+    function resolve(id) {
+        const note = prompt("Resolution Note:");
+        if(note) { const p = posts.find(x => x.id === id); p.status = 'RESOLVED'; p.resolution = note; save(); renderStaffView(); }
+    }
+
+    function handleCrisis() { 
+        if(/Android|iPhone/i.test(navigator.userAgent)) window.location.href="tel:988"; 
+        else alert("CALL 988 or TEXT 'HOME' to 741741");
+    }
+
+    function save() { localStorage.setItem('unmuted_v36', JSON.stringify(posts)); }
+    function nav(id) {
+        document.querySelectorAll('.screen').forEach(s => s.style.display='none');
+        document.getElementById('screen-'+id).style.display='block';
+        document.getElementById('bottom-nav').style.display = (id==='gate'||id==='mood') ? 'none' : 'flex';
+    }
+</script>
+</body>
+</html>
